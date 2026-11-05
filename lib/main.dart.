@@ -1,0 +1,545 @@
+mport 'package:flutter/material.dart';
+
+void main() => runApp(const NewsApp());
+
+// ---------------- MODEL ----------------
+class Article {
+  final int id;
+  final String title, summary, content, category, source, imageUrl;
+  final int readMins;
+
+  const Article({
+    required this.id,
+    required this.title,
+    required this.summary,
+    required this.content,
+    required this.category,
+    required this.source,
+    required this.imageUrl,
+    required this.readMins,
+  });
+}
+
+// ---------------- CONTROLLER ----------------
+enum ScreenState { loading, error, empty, data }
+
+class NewsController extends ChangeNotifier {
+  ScreenState state = ScreenState.loading;
+  String category = 'General';
+  String query = '';
+  final Set<int> bookmarks = {};
+
+  final categories = ['General', 'Technology', 'Business', 'Science'];
+
+  final List<Article> _all = const [
+    Article(
+      id: 1, category: 'General', source: 'Global Geographic', readMins: 4,
+      title: 'Deep Ocean Mapping Project Uncovers 19,000 Uncharted Features',
+      summary: 'High-resolution satellite altimetry reveals geological features.',
+      content: 'A new satellite-based mapping effort has revealed thousands of previously unknown underwater mountains and ridges, helping scientists understand ocean currents and plate movement.',
+      imageUrl: 'https://picsum.photos/seed/ocean/600/300',
+    ),
+    Article(
+      id: 2, category: 'General', source: 'World Daily', readMins: 3,
+      title: 'Cities Roll Out Free Public Wi-Fi Zones',
+      summary: 'Several cities are expanding free internet access in parks.',
+      content: 'Local governments are installing free Wi-Fi in parks, libraries and bus stations to help students and small businesses get online.',
+      imageUrl: 'https://picsum.photos/seed/city/600/300',
+    ),
+    Article(
+      id: 3, category: 'Technology', source: 'Tech Weekly', readMins: 5,
+      title: 'Flutter Adds Faster Rendering for Web Apps',
+      summary: 'New engine updates cut startup time on low-end devices.',
+      content: 'The latest Flutter release improves web startup performance and reduces memory use, making apps feel smoother on budget phones and laptops.',
+      imageUrl: 'https://picsum.photos/seed/flutter/600/300',
+    ),
+    Article(
+      id: 4, category: 'Technology', source: 'Dev Today', readMins: 4,
+      title: 'AI Coding Assistants Become Standard in Classrooms',
+      summary: 'Students are learning to code with AI helpers.',
+      content: 'Colleges report that students who use AI tools alongside traditional teaching finish projects faster, as long as they still learn the fundamentals.',
+      imageUrl: 'https://picsum.photos/seed/coding/600/300',
+    ),
+    Article(
+      id: 5, category: 'Business', source: 'Market Watch', readMins: 3,
+      title: 'Startups See Record Funding in Clean Energy',
+      summary: 'Investors are backing battery and solar companies.',
+      content: 'Clean energy startups raised record funding this quarter as demand for batteries, solar panels and grid technology keeps climbing.',
+      imageUrl: 'https://picsum.photos/seed/energy/600/300',
+    ),
+    Article(
+      id: 6, category: 'Business', source: 'Biz Insider', readMins: 4,
+      title: 'Remote Work Reshapes Office Rentals',
+      summary: 'Companies are choosing smaller, flexible offices.',
+      content: 'More firms are moving to flexible co-working spaces instead of long leases, changing how commercial real estate works.',
+      imageUrl: 'https://picsum.photos/seed/office/600/300',
+    ),
+    Article(
+      id: 7, category: 'Science', source: 'Science Now', readMins: 6,
+      title: 'Telescope Spots Water Vapor on Distant Planet',
+      summary: 'Astronomers detect water in an exoplanet atmosphere.',
+      content: 'Using infrared observations, researchers found clear signs of water vapor around a planet 120 light-years away.',
+      imageUrl: 'https://picsum.photos/seed/space/600/300',
+    ),
+    Article(
+      id: 8, category: 'Science', source: 'Nature Notes', readMins: 4,
+      title: 'Coral Reefs Show Signs of Recovery',
+      summary: 'Protected areas see healthier coral growth.',
+      content: 'Marine scientists report new coral growth in protected zones, showing conservation efforts can work when pollution is reduced.',
+      imageUrl: 'https://picsum.photos/seed/coral/600/300',
+    ),
+  ];
+
+  NewsController() {
+    load();
+  }
+
+  List<Article> get visible => _all
+      .where((a) =>
+          a.category == category &&
+          (query.isEmpty ||
+              a.title.toLowerCase().contains(query.toLowerCase())))
+      .toList();
+
+  List<Article> get saved =>
+      _all.where((a) => bookmarks.contains(a.id)).toList();
+
+  Future<void> load() async {
+    state = ScreenState.loading;
+    notifyListeners();
+    await Future.delayed(const Duration(seconds: 1));
+    state = ScreenState.data;
+    notifyListeners();
+  }
+
+  void forceState(ScreenState s) {
+    state = s;
+    notifyListeners();
+  }
+
+  void setCategory(String c) {
+    category = c;
+    notifyListeners();
+  }
+
+  void setQuery(String q) {
+    query = q;
+    notifyListeners();
+  }
+
+  bool isSaved(int id) => bookmarks.contains(id);
+
+  void toggleBookmark(int id) {
+    if (!bookmarks.add(id)) bookmarks.remove(id);
+    notifyListeners();
+  }
+}
+
+final news = NewsController();
+
+// ---------------- APP ----------------
+class NewsApp extends StatelessWidget {
+  const NewsApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'News Reader',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorSchemeSeed: const Color(0xFF1E40AF),
+        useMaterial3: true,
+      ),
+      home: const HomeScreen(),
+    );
+  }
+}
+
+// ---------------- HOME ----------------
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  bool searching = false;
+  final controller = TextEditingController();
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: news,
+      builder: (context, _) {
+        return Scaffold(
+          appBar: AppBar(
+            title: searching
+                ? TextField(
+                    controller: controller,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      hintText: 'Search news...',
+                      border: InputBorder.none,
+                    ),
+                    onChanged: news.setQuery,
+                  )
+                : const Text('News Reader',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+            actions: [
+              IconButton(
+                icon: Icon(searching ? Icons.close : Icons.search),
+                onPressed: () {
+                  setState(() => searching = !searching);
+                  if (!searching) {
+                    controller.clear();
+                    news.setQuery('');
+                  }
+                },
+              ),
+              IconButton(
+                icon: Badge(
+                  label: Text('${news.bookmarks.length}'),
+                  isLabelVisible: news.bookmarks.isNotEmpty,
+                  child: const Icon(Icons.bookmark_border),
+                ),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const BookmarksScreen()),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: news.load,
+              ),
+            ],
+          ),
+          body: Column(
+            children: [
+              _stateSwitcher(),
+              _categoryChips(),
+              Expanded(child: _body()),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _stateSwitcher() {
+    final items = {
+      '1. Data': ScreenState.data,
+      '2. Loading': ScreenState.loading,
+      '3. Error': ScreenState.error,
+      '4. Empty': ScreenState.empty,
+    };
+    return SizedBox(
+      height: 50,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        children: items.entries.map((e) {
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: Text(e.key),
+              selected: news.state == e.value,
+              onSelected: (_) => news.forceState(e.value),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _categoryChips() {
+    return SizedBox(
+      height: 52,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        children: news.categories.map((c) {
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: Text(c),
+              selected: news.category == c,
+              onSelected: (_) => news.setCategory(c),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _body() {
+    switch (news.state) {
+      case ScreenState.loading:
+        return const Center(child: CircularProgressIndicator());
+      case ScreenState.error:
+        return MessageView(
+          icon: Icons.wifi_off,
+          text: 'Something went wrong.\nCheck your connection.',
+          buttonText: 'Retry',
+          onTap: news.load,
+        );
+      case ScreenState.empty:
+        return MessageView(
+          icon: Icons.inbox_outlined,
+          text: 'No articles available.',
+          buttonText: 'Refresh',
+          onTap: news.load,
+        );
+      case ScreenState.data:
+        final items = news.visible;
+        if (items.isEmpty) {
+          return const MessageView(
+            icon: Icons.search_off,
+            text: 'No articles match your search.',
+          );
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: items.length,
+          itemBuilder: (context, i) => ArticleCard(article: items[i]),
+        );
+    }
+  }
+}
+
+// ---------------- WIDGETS ----------------
+class MessageView extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final String? buttonText;
+  final VoidCallback? onTap;
+
+  const MessageView({
+    super.key,
+    required this.icon,
+    required this.text,
+    this.buttonText,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 64, color: Colors.grey),
+          const SizedBox(height: 12),
+          Text(text, textAlign: TextAlign.center),
+          if (buttonText != null) ...[
+            const SizedBox(height: 12),
+            FilledButton(onPressed: onTap, child: Text(buttonText!)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class ArticleCard extends StatelessWidget {
+  final Article article;
+  const ArticleCard({super.key, required this.article});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => DetailScreen(article: article)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                ArticleImage(url: article.imageUrl, height: 160),
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      article.category.toUpperCase(),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${article.source} · ${article.readMins} min read',
+                          style: const TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(news.isSaved(article.id)
+                            ? Icons.bookmark
+                            : Icons.bookmark_border),
+                        onPressed: () => news.toggleBookmark(article.id),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    article.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 17, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    article.summary,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.black54),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ArticleImage extends StatelessWidget {
+  final String url;
+  final double height;
+  const ArticleImage({super.key, required this.url, required this.height});
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.network(
+      url,
+      height: height,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, progress) => progress == null
+          ? child
+          : SizedBox(
+              height: height,
+              child: const Center(child: CircularProgressIndicator()),
+            ),
+      errorBuilder: (context, error, stack) => Container(
+        height: height,
+        color: Colors.grey.shade300,
+        child: const Icon(Icons.image_not_supported, size: 40),
+      ),
+    );
+  }
+}
+
+// ---------------- DETAIL ----------------
+class DetailScreen extends StatelessWidget {
+  final Article article;
+  const DetailScreen({super.key, required this.article});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: news,
+      builder: (context, _) {
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Article'),
+            actions: [
+              IconButton(
+                icon: Icon(news.isSaved(article.id)
+                    ? Icons.bookmark
+                    : Icons.bookmark_border),
+                onPressed: () => news.toggleBookmark(article.id),
+              ),
+            ],
+          ),
+          body: ListView(
+            children: [
+              ArticleImage(url: article.imageUrl, height: 220),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${article.category} · ${article.source} · ${article.readMins} min read',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      article.title,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 14),
+                    Text(article.content,
+                        style: const TextStyle(fontSize: 16, height: 1.5)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ---------------- BOOKMARKS ----------------
+class BookmarksScreen extends StatelessWidget {
+  const BookmarksScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Saved Articles')),
+      body: ListenableBuilder(
+        listenable: news,
+        builder: (context, _) {
+          final items = news.saved;
+          if (items.isEmpty) {
+            return const MessageView(
+              icon: Icons.bookmark_border,
+              text: 'No saved articles yet.',
+            );
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.all(12),
+            itemCount: items.length,
+            itemBuilder: (context, i) => ArticleCard(article: items[i]),
+          );
+        },
+      ),
+    );
+  }
+}
